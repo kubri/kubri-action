@@ -1,0 +1,100 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+          - macos-latest
+          - macos-15-intel
+          - windows-latest
+          - windows-11-arm
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: kubri
+        uses: ./
+        with:
+          install-only: true
+
+      - name: Check kubri is on PATH
+        shell: bash
+        run: kubri version | grep "^kubri ${{ steps.kubri.outputs.version }} "
+
+  version:
+    name: Version (${{ matrix.version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 0.8.0
+            expected: '0\.8\.0 '
+          - version: v0.8.0
+            expected: '0\.8\.0 '
+          - version: ^0.8
+            expected: '0\.8\.'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./
+        with:
+          version: ${{ matrix.version }}
+          install-only: true
+
+      - name: Check the installed version
+        run: kubri version | grep "^kubri ${{ matrix.expected }}"
+
+  run:
+    name: Run (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: args
+            args: version
+            outcome: success
+          - name: default args
+            outcome: failure
+          - name: exit code
+            args: build -c missing.yml
+            outcome: failure
+          - name: workdir
+            args: version
+            workdir: missing
+            outcome: failure
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: kubri
+        uses: ./
+        continue-on-error: true
+        with:
+          args: ${{ matrix.args || 'build' }}
+          workdir: ${{ matrix.workdir || '.' }}
+
+      - name: Check the outcome
+        run: test '${{ steps.kubri.outcome }}' = '${{ matrix.outcome }}'

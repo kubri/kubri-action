@@ -1,0 +1,33 @@
+name: Kubri Action
+description:
+  GitHub Action for kubri, a tool that signs and publishes software for package managers and update
+  frameworks
+author: kubri
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  version:
+    description: Version or semver range of kubri to install
+    default: latest
+  args:
+    description: Arguments to run kubri with
+    default: build
+  workdir:
+    description: Directory to run kubri in
+    default: .
+  install-only:
+    description: Only install kubri and add it to PATH
+    default: 'false'
+  github-token:
+    description: Token used to look up kubri releases and attestations. Not passed to kubri.
+    default: ${{ github.token }}
+
+outputs:
+  version:
+    description: The installed kubri version
+
+runs:
+  using: node24
+  main: dist/main.mjs
